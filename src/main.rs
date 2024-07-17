@@ -24,6 +24,10 @@ enum Command {
         #[clap(short, long, env = "BORE_SERVER")]
         to: String,
 
+        /// Server control port.
+        #[clap(short, long, value_name = "BORE_CONTROL_PORT", env = "BORE_CONTROL_PORT", default_value_t = 7835, hide_env_values = true)]
+        control_port: u16,
+
         /// Optional port on the remote server to select.
         #[clap(short, long, default_value_t = 0)]
         port: u16,
@@ -43,6 +47,10 @@ enum Command {
         #[clap(long, default_value_t = 65535)]
         max_port: u16,
 
+        /// Server control port.
+        #[clap(short, long, value_name = "BORE_CONTROL_PORT", env = "BORE_CONTROL_PORT", default_value_t = 7835, hide_env_values = true)]
+        control_port: u16,
+
         /// Optional secret for authentication.
         #[clap(short, long, env = "BORE_SECRET", hide_env_values = true)]
         secret: Option<String>,
@@ -57,14 +65,16 @@ async fn run(command: Command) -> Result<()> {
             local_port,
             to,
             port,
+            control_port,
             secret,
         } => {
-            let client = Client::new(&local_host, local_port, &to, port, secret.as_deref()).await?;
+            let client = Client::new(&local_host, local_port, &to, port, control_port, secret.as_deref()).await?;
             client.listen().await?;
         }
         Command::Server {
             min_port,
             max_port,
+            control_port,
             secret,
         } => {
             let port_range = min_port..=max_port;
@@ -73,7 +83,7 @@ async fn run(command: Command) -> Result<()> {
                     .error(ErrorKind::InvalidValue, "port range is empty")
                     .exit();
             }
-            Server::new(port_range, secret.as_deref()).listen().await?;
+            Server::new(port_range, control_port, secret.as_deref()).listen().await?;
         }
     }
 

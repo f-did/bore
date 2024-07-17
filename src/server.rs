@@ -11,7 +11,7 @@ use tracing::{info, info_span, warn, Instrument};
 use uuid::Uuid;
 
 use crate::auth::Authenticator;
-use crate::shared::{proxy, ClientMessage, Delimited, ServerMessage, CONTROL_PORT};
+use crate::shared::{proxy, ClientMessage, Delimited, ServerMessage};
 
 /// State structure for the server.
 pub struct Server {
@@ -21,25 +21,30 @@ pub struct Server {
     /// Optional secret used to authenticate clients.
     auth: Option<Authenticator>,
 
+    /// TCP port used for control connections with the server.
+    server_port: u16,
+
     /// Concurrent map of IDs to incoming connections.
     conns: Arc<DashMap<Uuid, TcpStream>>,
 }
 
 impl Server {
     /// Create a new server with a specified minimum port number.
-    pub fn new(port_range: RangeInclusive<u16>, secret: Option<&str>) -> Self {
+    pub fn new(port_range: RangeInclusive<u16>, server_port: u16, secret: Option<&str>) -> Self {
         assert!(!port_range.is_empty(), "must provide at least one port");
         Server {
             port_range,
             conns: Arc::new(DashMap::new()),
+            server_port,
             auth: secret.map(Authenticator::new),
         }
     }
 
     /// Start the server, listening for new connections.
     pub async fn listen(self) -> Result<()> {
-        let this = Arc::new(self);
-        let addr = SocketAddr::from(([0, 0, 0, 0], CONTROL_PORT));
+        let server_port = self.server_port;
+        let this: Arc<Server> = Arc::new(self);
+        let addr = SocketAddr::from(([0, 0, 0, 0], server_port));
         let listener = TcpListener::bind(&addr).await?;
         info!(?addr, "server listening");
 
